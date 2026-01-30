@@ -1,37 +1,43 @@
 import os
 import logging
-from telegram.ext import Application, CommandHandler
+import random
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = os.getenv("BOT_TOKEN", "8427120813:AAEG9BnLBpoZH9s-oXyNes8yMLmEI4K50LA")
+# التوكن في الكود (كما طلبت)
+TOKEN = "8427120813:AAEG9BnLBpoZH9s-oXyNes8yMLmEI4K50LA"
+SERETEL_NUMBERS = ["99880820", "17875230"]
 
-async def start(update, context):
-    await update.message.reply_text("🚀 البوت يعمل!")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    await update.message.reply_text(f"🚀 مرحباً {user.first_name}!\n/command1-7")
 
-async def command1(update, context):
-    await update.message.reply_text("⚡ تفعيل البوت")
+async def command1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("⚡ command1 - تفعيل البوت")
 
-async def command2(update, context):
-    await update.message.reply_text("💰 شحن الرصيد")
+async def command2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("💰 command2 - شحن الرصيد")
 
-async def command3(update, context):
-    await update.message.reply_text("🎁 كود جائزة")
+async def command3(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🎁 command3 - كود جائزة")
 
-async def command4(update, context):
-    await update.message.reply_text("🎰 جاكبوت اليوم")
+async def command4(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🎰 command4 - جاكبوت اليوم")
 
-async def command5(update, context):
-    await update.message.reply_text("👤 أيدي المستخدم")
+async def command5(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"👤 command5 - أيدي: {update.effective_user.id}")
 
-async def command6(update, context):
-    await update.message.reply_text("🎪 العروض الحالية")
+async def command6(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🎪 command6 - العروض الحالية")
 
-async def command7(update, context):
-    await update.message.reply_text("👥 نظام الإحالات")
+async def command7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👥 command7 - نظام الإحالات")
 
 def main():
     logging.basicConfig(level=logging.INFO)
     
-    app = Application.builder().token(TOKEN).updater(None).build()
+    # الكود القديم الذي كان يعمل
+    app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("command1", command1))
@@ -42,7 +48,7 @@ def main():
     app.add_handler(CommandHandler("command6", command6))
     app.add_handler(CommandHandler("command7", command7))
     
-    logging.info("🚀 البوت يعمل...")
+    print("🚀 البوت يعمل...")
     app.run_polling()
 
 if __name__ == '__main__':
