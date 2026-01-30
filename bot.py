@@ -1,3 +1,4 @@
+import os
 import logging
 import random
 from datetime import datetime, timedelta
@@ -5,7 +6,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ========== إعدادات البوت ==========
-BOT_TOKEN = "8427120813:AAHhejkBSGwQO25ldAnqdQogLVFCnHOAx0w"
+# 🔒 التوكن الآمن - يقرأه من Railway أولاً
+TOKEN = os.getenv("BOT_TOKEN", "8427120813:AAHhejkBSGwQO25ldAnqdQogLVFCnHOAx0w")
 SERETEL_NUMBERS = ["99880820", "17875230"]
 
 # ========== الباقات والأسعار ==========
@@ -136,7 +138,7 @@ def main():
     )
     
     # إنشاء التطبيق
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(TOKEN).build()  # 🔥 استخدم TOKEN هنا
     
     # إضافة الأوامر
     app.add_handler(CommandHandler("start", start))
