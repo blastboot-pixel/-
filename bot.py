@@ -1,22 +1,24 @@
 import os
+import sys
 import logging
 from datetime import datetime, timedelta
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Command
-from aiogram.utils import executor
 
 # إعدادات السجلة
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# قراءة التوكن من متغيرات البيئة
+# قراءة التوكن من متغيرات Railway
 TOKEN = os.getenv('BOT_TOKEN')
 ADMIN = int(os.getenv('ADMIN_ID', 0))
 
 if not TOKEN:
-    print("❌ خطأ: ضع متغير BOT_TOKEN في البيئة")
-    exit(1)
+    print("❌ خطأ: لم يتم العثور على BOT_TOKEN في متغيرات Railway")
+    print("💡 الحل: أضف متغير BOT_TOKEN في Railway Dashboard → Variables")
+    sys.exit(1)
 
 # تهيئة البوت
 bot = Bot(token=TOKEN)
@@ -41,31 +43,20 @@ PLANS = {
 
 @dp.message_handler(Command("start"))
 async def start_cmd(message: types.Message):
-    """بدء البوت"""
     user_id = message.from_user.id
     
     if user_id not in users_db:
-        users_db[user_id] = {
-            "نقاط": 0,
-            "إحالات": 0,
-            "كود": f"REF{user_id}",
-            "مفعل": False
-        }
+        users_db[user_id] = {"نقاط": 0, "إحالات": 0, "مفعل": False}
     
-    await message.reply(
-        "🔮 بوت تنبؤات مدفع ايشانسي\n\n"
-        "📌 الأوامر:\n"
-        "• /activate - تفعيل البوت\n"
-        "• /charge - شحن رصيد\n"
-        "• /gift - أكواد الهدايا\n"
-        "• /jackpot - الجاكبوت\n"
-        "• /ref - نظام الإحالات\n"
-        "• /offers - العروض"
-    )
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add("🔓 تفعيل البوت", "💰 شحن البوت")
+    keyboard.add("🎁 كود جائزة", "🎰 الجاكبوت")
+    keyboard.add("📊 الإحالات", "🎯 العروض")
+    
+    await message.reply("🔮 بوت تنبؤات مدفع ايشانسي\nاختر من الأزرار:", reply_markup=keyboard)
 
-@dp.message_handler(Command("charge"))
-async def charge_cmd(message: types.Message):
-    """شحن الرصيد"""
+@dp.message_handler(lambda m: m.text == "💰 شحن البوت")
+async def charge_btn(message: types.Message):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     
     for time, details in PLANS.items():
@@ -76,113 +67,64 @@ async def charge_cmd(message: types.Message):
         keyboard.add(btn)
     
     await message.reply(
-        "💰 اختر خطة الشحن:\n\n"
-        "1️⃣ 15 دقيقة - 750 ل.س جديدة\n"
-        "2️⃣ 30 دقيقة - 1000 ل.س جديدة\n"
-        "3️⃣ 60 دقيقة - 1500 ل.س جديدة\n\n"
-        "📱 ارسل المبلغ لأحد الرقمين:\n"
-        f"• {WALLETS[0]}\n"
-        f"• {WALLETS[1]}",
+        f"💰 اختر خطة:\n\n"
+        f"📱 ارسل لأحد الرقمين:\n• {WALLETS[0]}\n• {WALLETS[1]}\n\n"
+        f"ثم أرسل رمز العملية",
         reply_markup=keyboard
     )
 
 @dp.callback_query_handler(lambda c: c.data.startswith('buy_'))
 async def process_buy(callback: types.CallbackQuery):
-    """معالجة الشراء"""
     plan = callback.data.split('_')[1]
     details = PLANS[plan]
     
     await callback.message.edit_text(
         f"✅ اخترت {details['دقائق']} دقيقة\n"
-        f"💵 السعر: {details['سعر']}\n\n"
-        f"📤 ارسل المبلغ إلى:\n"
-        f"• {WALLETS[0]}\n"
-        f"أو\n"
-        f"• {WALLETS[1]}\n\n"
-        "📩 ثم أرسل رمز العملية هنا"
+        f"💵 {details['سعر']}\n\n"
+        f"📤 ارسل المبلغ ثم أرسل رمز العملية"
     )
-    
-    # هنا ننتظر رمز العملية
-    # (يمكن إضافة FSMState لمعالجة الخطوة التالية)
 
-@dp.message_handler(Command("activate"))
-async def activate_cmd(message: types.Message):
-    """تفعيل البوت"""
+@dp.message_handler(lambda m: m.text == "🔓 تفعيل البوت")
+async def activate_btn(message: types.Message):
     user_id = message.from_user.id
     
     if user_id in active_subs and active_subs[user_id] > datetime.now():
         expiry = active_subs[user_id]
         remaining = expiry - datetime.now()
         mins = int(remaining.total_seconds() / 60)
-        
-        await message.reply(f"✅ البوت مفعل\n⏰ متبقي: {mins} دقيقة")
+        await message.reply(f"✅ مفعل\n⏰ متبقي: {mins} دقيقة")
     else:
-        await message.reply("❌ اشحن أولاً باستخدام /charge")
+        await message.reply("❌ اشحن أولاً من زر '💰 شحن البوت'")
 
-@dp.message_handler(Command("ref"))
-async def ref_cmd(message: types.Message):
-    """نظام الإحالات"""
+@dp.message_handler(lambda m: m.text == "📊 الإحالات")
+async def ref_btn(message: types.Message):
     user_id = message.from_user.id
-    user = users_db.get(user_id, {})
-    
     ref_link = f"https://t.me/{(await bot.me).username}?start=ref_{user_id}"
-    
-    await message.reply(
-        f"👥 نظام الإحالات\n\n"
-        f"📊 إحالاتك: {user.get('إحالات', 0)}\n"
-        f"⭐ نقاطك: {user.get('نقاط', 0)}\n"
-        f"🔗 رابطك: {ref_link}\n\n"
-        f"🎯 مكافأة: 50 نقطة لكل إحالة"
-    )
+    await message.reply(f"🔗 رابط الإحالة:\n{ref_link}\n🎯 50 نقطة لكل إحالة")
 
-@dp.message_handler(Command("gift"))
-async def gift_cmd(message: types.Message):
-    """أكواد الهدايا"""
-    await message.reply(
-        "🎁 نظام الأكواد:\n\n"
-        "• أدخل كود الهدية للحصول على نقاط\n"
-        "• الأكواد تتجدد يومياً\n"
-        "• لكل كود 100 نقطة"
-    )
+@dp.message_handler(lambda m: m.text == "🎁 كود جائزة")
+async def gift_btn(message: types.Message):
+    await message.reply("🎁 أدخل كود الهدية للحصول على 100 نقطة")
 
-@dp.message_handler(Command("jackpot"))
-async def jackpot_cmd(message: types.Message):
-    """الجاكبوت"""
-    await message.reply(
-        "🎰 جاكبوت النقاط\n\n"
-        "💰 القيمة: 5000 نقطة\n"
-        "🎫 التذكرة: 50 نقطة\n"
-        "⏰ السحب: يومياً\n\n"
-        "🎯 اشتر تذكرة للفوز!"
-    )
+@dp.message_handler(lambda m: m.text == "🎰 الجاكبوت")
+async def jackpot_btn(message: types.Message):
+    await message.reply("🎰 الجاكبوت: 5000 نقطة\n🎫 التذكرة: 50 نقطة\n🏆 السحب يومياً")
 
-@dp.message_handler(Command("offers"))
-async def offers_cmd(message: types.Message):
-    """العروض"""
-    await message.reply(
-        "🎯 العروض الحالية:\n\n"
-        "🔥 عرض خاص:\n"
-        "• 60 دقيقة + 30 مجانية\n"
-        "• السعر: 1500 ل.س فقط\n\n"
-        "💎 عرض الإحالات:\n"
-        "• 3 أحالات = 30 دقيقة مجانية"
-    )
+@dp.message_handler(lambda m: m.text == "🎯 العروض")
+async def offers_btn(message: types.Message):
+    await message.reply("🎯 العروض:\n🔥 60+30 دقيقة - 1500 ل.س\n💎 3 أحالات = 30 دقيقة مجانية")
 
-@dp.message_handler(Command("admin"))
-async def admin_cmd(message: types.Message):
-    """لوحة التحكم"""
-    if message.from_user.id != ADMIN:
-        return
-    
-    await message.reply(
-        "🛠 لوحة التحكم:\n\n"
-        f"👥 المستخدمين: {len(users_db)}\n"
-        f"🔋 المفعلين: {len(active_subs)}\n\n"
-        "📊 الإحصائيات جاهزة"
-    )
+# ============ Startup ============
+
+async def on_startup(_):
+    print("=" * 50)
+    print("✅ بوت التنبؤات يعمل بنجاح على Railway!")
+    print(f"👤 أيدي المشرف: {ADMIN}")
+    print(f"🔗 @{(await bot.me).username}")
+    print("=" * 50)
 
 # ============ التشغيل ============
 
 if __name__ == '__main__':
-    print("✅ البوت يبدأ التشغيل...")
-    executor.start_polling(dp, skip_updates=True)
+    print("🚀 بدء تشغيل البوت...")
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
