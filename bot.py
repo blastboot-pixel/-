@@ -1,7 +1,6 @@
 import os
 import logging
 import random
-import asyncio
 import hashlib
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,29 +8,10 @@ from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, 
     ContextTypes, MessageHandler, filters
 )
-from dotenv import load_dotenv
-
-# ========== تحميل المتغيرات الآمنة ==========
-load_dotenv()
 
 # ========== إعدادات البوت الآمنة ==========
-TOKEN = os.getenv("BOT_TOKEN")
-
-# التحقق من التوكن
-if not TOKEN:
-    print("❌ خطأ: لم يتم تعيين BOT_TOKEN في متغيرات البيئة!")
-    print("📝 أضف في Railway: Settings → Variables → Add BOT_TOKEN")
-    print("📝 أو أنشئ ملف .env محلي مع BOT_TOKEN=توكنك")
-    exit(1)
-
-# قراءة أرقام سيريتل
-SERETEL_NUMBERS = os.getenv("SERETEL_NUMBERS", "99880820,17875230").split(",")
-
-# قراءة آيدي المشرفين
-admin_ids_str = os.getenv("ADMIN_IDS", "")
-ADMIN_IDS = []
-if admin_ids_str:
-    ADMIN_IDS = [int(id.strip()) for id in admin_ids_str.split(",") if id.strip().isdigit()]
+TOKEN = os.getenv("BOT_TOKEN", "8427120813:AAEG9BnLBpoZH9s-oXyNes8yMLmEI4K50LA")
+SERETEL_NUMBERS = ["99880820", "17875230"]
 
 # ========== الباقات والأسعار ==========
 PLANS = {
@@ -45,10 +25,6 @@ users_db = {}
 payments_db = {}
 
 # ========== وظائف مساعدة ==========
-def is_admin(user_id: int) -> bool:
-    """التحقق إذا كان المستخدم مشرفاً"""
-    return user_id in ADMIN_IDS
-
 def get_user_data(user_id: int) -> dict:
     """الحصول على بيانات المستخدم"""
     if user_id not in users_db:
@@ -59,7 +35,8 @@ def get_user_data(user_id: int) -> dict:
             "active_until": None,
             "referral_code": f"REF{user_id:06d}",
             "referrals": [],
-            "total_earned": 0
+            "total_earned": 0,
+            "join_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
     return users_db[user_id]
 
@@ -82,20 +59,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("⚡ تفعيل البوت /command1", callback_data='command1')],
         [InlineKeyboardButton("💰 شحن الرصيد /command2", callback_data='command2')],
-        [InlineKeyboardButton("🎮 تنبؤ اللعبة", callback_data='predict')],
+        [InlineKeyboardButton("🎁 كود جائزة /command3", callback_data='command3')],
         [InlineKeyboardButton("🎰 جاكبوت اليوم /command4", callback_data='command4')],
+        [InlineKeyboardButton("👤 أيدي المستخدم /command5", callback_data='command5')],
+        [InlineKeyboardButton("🎪 العروض /command6", callback_data='command6')],
         [InlineKeyboardButton("👥 نظام الإحالات /command7", callback_data='command7')],
-        [InlineKeyboardButton("🎁 العروض /command6", callback_data='command6')],
+        [InlineKeyboardButton("🎮 تنبؤ اللعبة", callback_data='predict')],
     ]
     
     welcome_text = f"""
     🚀 **مرحباً {user.first_name} في Blast Boot!**
     
-    ✨ *المميزات المتاحة:*
-    ✅ تنبؤ لعبة مدفع إيشانسي
-    ✅ شحن عبر سيريتل كاش
-    ✅ نظام إحالات ربحي
-    ✅ جوائز يومية وجاكبوت
+    📱 *جميع الأوامر المتاحة:*
+    /start - بدء البوت
+    /command1 - تفعيل البوت
+    /command2 - شحن الرصيد
+    /command3 - كود جائزة
+    /command4 - جاكبوت اليوم
+    /command5 - أيدي المستخدم
+    /command6 - العروض الحالية
+    /command7 - نظام الإحالات
     
     💰 *باقات الشحن:*
     • 15 دقيقة - 750 ليرة جديدة
@@ -109,14 +92,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ⭐ نقاط: {user_data['points']}
     ⏰ مفعل: {'✅ نعم' if user_data['is_active'] else '❌ لا'}
     💰 رصيد: {user_data['balance']} ل.س
-    
-    اختر من القائمة 👇
     """
     
     await update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def command1(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """تفعيل البوت"""
+    """تفعيل البوت - command1"""
     keyboard = [
         [InlineKeyboardButton("🕒 15 دقيقة - 750 ليرة", callback_data='plan_15')],
         [InlineKeyboardButton("🕓 30 دقيقة - 1000 ليرة", callback_data='plan_30')],
@@ -124,8 +105,8 @@ async def command1(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔙 رجوع للقائمة", callback_data='main_menu')]
     ]
     
-    text = """
-    🔧 **تفعيل Blast Boot**
+    text = f"""
+    🔧 **تفعيل Blast Boot - command1**
     
     اختر مدة التفعيل:
     
@@ -138,33 +119,27 @@ async def command1(update: Update, context: ContextTypes.DEFAULT_TYPE):
     🕔 *60 دقيقة:*
     • 1,500 ليرة جديدة (150,000 قديمة)
     
-    📌 *طريقة التفعيل:*
-    1. اختر المدة
-    2. ادفع عبر سيريتل كاش
-    3. أرسل رقم العملية
-    4. يتم التفعيل تلقائياً
-    
     📱 *أرقام الدفع:*
     """
     
     for num in SERETEL_NUMBERS:
         text += f"    • `{num}`\n"
     
-    if update.message:
-        await update.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
-    elif update.callback_query:
-        await update.callback_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    text += """
+    
+    📌 *طريقة التفعيل:*
+    1. اختر المدة
+    2. ادفع عبر سيريتل كاش
+    3. أرسل رقم العملية
+    4. يتم التفعيل تلقائياً
+    """
+    
+    await update.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def command2(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """شحن البوت"""
-    keyboard = [
-        [InlineKeyboardButton("🔄 إعادة شحن", callback_data='recharge')],
-        [InlineKeyboardButton("📊 حالة الشحن", callback_data='charge_status')],
-        [InlineKeyboardButton("🔙 رجوع", callback_data='main_menu')]
-    ]
-    
+    """شحن البوت - command2"""
     text = f"""
-    💰 **شحن Blast Boot**
+    💰 **شحن Blast Boot - command2**
     
     يمكنك شحن البوت عن طريق:
     
@@ -182,19 +157,24 @@ async def command2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     • 1500 ليرة = 60 دقيقة
     
     📌 *خطوات الشحن:*
-    1. اختر المدة من /command1
+    1. استخدم /command1 لاختيار المدة
     2. ادفع عبر سيريتل كاش
     3. أرسل رقم العملية هنا
     4. يتم التفعيل تلقائياً
+    
+    ⚠️ *تنبيه:*
+    يجب تفعيل البوت أولاً لاستخدام التنبؤات
     """
     
-    if update.message:
-        await update.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
-    elif update.callback_query:
-        await update.callback_query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    keyboard = [
+        [InlineKeyboardButton("⚡ تفعيل البوت الآن", callback_data='command1')],
+        [InlineKeyboardButton("🔙 رجوع", callback_data='main_menu')]
+    ]
+    
+    await update.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def command3(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """كود جائزة"""
+    """كود جائزة - command3"""
     user = update.effective_user
     user_data = get_user_data(user.id)
     
@@ -202,7 +182,7 @@ async def command3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     gift_code = hashlib.md5(f"{user.id}{datetime.now()}".encode()).hexdigest()[:8].upper()
     
     text = f"""
-    🎁 **كود الجائزة الخاص بك**
+    🎁 **كود الجائزة - command3**
     
     🎫 الكود: `{gift_code}`
     ⭐ القيمة: 50 نقطة
@@ -214,8 +194,9 @@ async def command3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     3. النقاط قابلة للتحويل إلى وقت لعب
     
     👥 *مشاركة الكود:*
-    يمكنك مشاركة هذا الرابط:
-    https://t.me/share/url?url=https://t.me/BlastBootBot?start={gift_code}&text=انضم%20للبوت%20واحصل%20على%2050%20نقطة%20مجاناً!🎁
+    ```
+    https://t.me/BlastBootBot?start={gift_code}
+    ```
     
     ⭐ نقاطك الحالية: {user_data['points']}
     """
@@ -223,7 +204,7 @@ async def command3(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode='Markdown')
 
 async def command4(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """جاكبوت اليوم"""
+    """جاكبوت اليوم - command4"""
     user = update.effective_user
     user_data = get_user_data(user.id)
     
@@ -239,7 +220,7 @@ async def command4(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data["points"] += prize["points"]
     
     text = f"""
-    🎰 **جاكبوت اليوم**
+    🎰 **جاكبوت اليوم - command4**
     
     {prize['emoji']} **{prize['name']}**
     
@@ -256,21 +237,15 @@ async def command4(update: Update, context: ContextTypes.DEFAULT_TYPE):
     بعد {random.randint(1, 60)} دقيقة
     """
     
-    keyboard = [[InlineKeyboardButton("🔄 سحب مرة أخرى (غداً)", callback_data='jackpot_tomorrow')]]
-    
-    await update.message.reply_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(text, parse_mode='Markdown')
 
 async def command5(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """أيدي المستخدم"""
+    """أيدي المستخدم - command5"""
     user = update.effective_user
     user_data = get_user_data(user.id)
     
-    active_until = user_data.get('active_until', 'غير مفعل')
-    if active_until and isinstance(active_until, datetime):
-        active_until = active_until.strftime('%Y-%m-%d %H:%M')
-    
     text = f"""
-    👤 **معلومات حسابك**
+    👤 **معلومات حسابك - command5**
     
     🆔 *المعلومات الشخصية:*
     • User ID: `{user.id}`
@@ -282,10 +257,11 @@ async def command5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     • الرصيد: {user_data['balance']} ل.س
     • الإحالات: {len(user_data['referrals'])}
     • الأرباح: {user_data['total_earned']} نقطة
+    • تاريخ الانضمام: {user_data['join_date']}
     
     ⚡ *حالة التفعيل:*
     • الحالة: {'✅ مفعل' if user_data['is_active'] else '❌ غير مفعل'}
-    • حتى: {active_until}
+    • حتى: {user_data.get('active_until', 'غير مفعل')}
     
     🔗 *كود الإحالة:*
     `{user_data['referral_code']}`
@@ -294,9 +270,9 @@ async def command5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, parse_mode='Markdown')
 
 async def command6(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """العروض الحالية"""
+    """العروض الحالية - command6"""
     text = f"""
-    🎪 **العروض الحالية في Blast Boot**
+    🎪 **العروض الحالية - command6**
     
     🔥 *عرض المبتدئين:*
     • أول شحن: +30 دقيقة مجانية
@@ -320,15 +296,12 @@ async def command6(update: Update, context: ContextTypes.DEFAULT_TYPE):
     • الدفع عبر: `{SERETEL_NUMBERS[0]}` أو `{SERETEL_NUMBERS[1]}`
     
     📅 *العرض ينتهي: 30 فبراير 2025*
-    
-    📌 *كيفية المشاركة:*
-    شارك رابط دعوتك مع الأصدقاء!
     """
     
     await update.message.reply_text(text, parse_mode='Markdown')
 
 async def command7(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """نظام الإحالات"""
+    """نظام الإحالات - command7"""
     user = update.effective_user
     user_data = get_user_data(user.id)
     
@@ -340,7 +313,7 @@ async def command7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_earnings = total_refs * 100
     
     text = f"""
-    👥 **نظام الإحالات الربحي**
+    👥 **نظام الإحالات - command7**
     
     🔗 *رابط الدعوة الخاص بك:*
     `{ref_link}`
@@ -366,7 +339,6 @@ async def command7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [InlineKeyboardButton("📤 مشاركة الرابط", url=f"https://t.me/share/url?url={ref_link}&text=انضم%20إلى%20Blast%20Boot%20للحصول%20على%20100%20نقطة%20مجانية!🎁")],
-        [InlineKeyboardButton("💰 سحب الأرباح", callback_data='withdraw_ref')],
         [InlineKeyboardButton("🔙 رجوع", callback_data='main_menu')]
     ]
     
@@ -400,7 +372,7 @@ async def predict_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         predictions.append(f"{pred['number']} {pred['emoji']}")
     
     text = f"""
-    🎮 **تنبؤات Blast Boot - لعبة المدفع**
+    🎮 **تنبؤات Blast Boot**
     
     ⏰ الوقت: {datetime.now().strftime('%H:%M:%S')}
     🎯 آخر 10 نتائج:
@@ -414,15 +386,9 @@ async def predict_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     📊 *تحليل النتائج:*
     • الفوز: {sum('✅' in p for p in predictions)} مرات
     • الخسارة: {sum('❌' in p for p in predictions)} مرات
-    • أفضل نتيجة: {max([float(p.split()[0]) for p in predictions])}
     
     💡 *نصيحة النظام:*
     {'🔥 الوقت المناسب للعب!' if '✅' in predictions[-1] else '⚠️ انتظر قليلاً!'}
-    
-    ⏰ وقتك المتبقي: {
-        (datetime.strptime(user_data['active_until'], '%Y-%m-%d %H:%M:%S') - datetime.now()).seconds // 60 
-        if user_data['active_until'] else 0
-    } دقيقة
     """
     
     await update.message.reply_text(text, parse_mode='Markdown')
@@ -435,32 +401,19 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # التحقق إذا كان رقم عملية تحويل
     if message_text.isdigit() and len(message_text) >= 6:
-        # محاكاة التحقق من الدفع
         await update.message.reply_text("🔄 جاري التحقق من عملية الدفع...")
-        await asyncio.sleep(2)
         
-        # نجاح الدفع (وهمي - في الواقع تأكد من سيريتل)
+        # نجاح الدفع
         user_data['is_active'] = True
         user_data['active_until'] = (datetime.now() + timedelta(minutes=60)).strftime('%Y-%m-%d %H:%M:%S')
-        user_data['points'] += 100  # نقاط مكافأة
-        user_data['balance'] += 1000  # رصيد إضافي
-        
-        # حفظ معلومات الدفع
-        payment_id = hashlib.md5(f"{user.id}{message_text}".encode()).hexdigest()[:8]
-        payments_db[payment_id] = {
-            'user_id': user.id,
-            'amount': 1000,
-            'transaction_id': message_text,
-            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'status': 'completed'
-        }
+        user_data['points'] += 100
+        user_data['balance'] += 1000
         
         text = f"""
     ✅ **تم التفعيل بنجاح!**
     
     🎉 مبروك! تم تفعيل Blast Boot لحسابك
     📝 رقم العملية: `{message_text}`
-    🆔 كود الدفع: {payment_id}
     
     📅 *تفاصيل التفعيل:*
     • الحالة: ✅ مفعل
@@ -472,9 +425,8 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     🎮 *يمكنك الآن استخدام:*
     • /predict للتنبؤ باللعبة
     • /command4 للجاكبوت
-    • جميع ميزات البوت
     
-    ⭐ نقاطك الحالية: {user_data['points']}
+    ⭐ نقاطك: {user_data['points']}
     💰 رصيدك: {user_data['balance']} ل.س
         """
         
@@ -489,22 +441,35 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     
     if data == 'main_menu':
-        await start(update, context)
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        
+        keyboard = [
+            [InlineKeyboardButton("⚡ تفعيل البوت /command1", callback_data='command1')],
+            [InlineKeyboardButton("💰 شحن الرصيد /command2", callback_data='command2')],
+            [InlineKeyboardButton("🎁 كود جائزة /command3", callback_data='command3')],
+            [InlineKeyboardButton("🎰 جاكبوت اليوم /command4", callback_data='command4')],
+            [InlineKeyboardButton("👤 أيدي المستخدم /command5", callback_data='command5')],
+            [InlineKeyboardButton("🎪 العروض /command6", callback_data='command6')],
+            [InlineKeyboardButton("👥 نظام الإحالات /command7", callback_data='command7')],
+        ]
+        
+        text = f"""
+    🏠 **القائمة الرئيسية**
     
-    elif data == 'command1':
-        await command1(update, context)
+    📊 *حسابك الحالي:*
+    ⭐ نقاط: {user_data['points']}
+    💰 رصيد: {user_data['balance']} ل.س
+    ⏰ مفعل: {'✅ نعم' if user_data['is_active'] else '❌ لا'}
     
-    elif data == 'command2':
-        await command2(update, context)
+    اختر الأمر الذي تريده:
+        """
+        
+        await query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
     
-    elif data == 'command4':
-        await command4(update, context)
-    
-    elif data == 'command6':
-        await command6(update, context)
-    
-    elif data == 'command7':
-        await command7(update, context)
+    elif data in ['command1', 'command2', 'command3', 'command4', 'command5', 'command6', 'command7']:
+        command_func = globals()[data]
+        await command_func(update, context)
     
     elif data == 'predict':
         await predict_game(update, context)
@@ -542,22 +507,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             await query.edit_message_text(text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def setup_commands(application):
-    """إعداد قائمة الأوامر في البوت"""
-    commands = [
-        ("start", "بدء البوت"),
-        ("command1", "تفعيل البوت"),
-        ("command2", "شحن البوت"),
-        ("command3", "كود جائزة"),
-        ("command4", "جاكبوت اليوم"),
-        ("command5", "أيدي المستخدم"),
-        ("command6", "العروض الحالية"),
-        ("command7", "نظام الإحالات"),
-        ("predict", "تنبؤ اللعبة"),
-    ]
-    
-    await application.bot.set_my_commands(commands)
-
 # ========== الدالة الرئيسية ==========
 def main():
     """الدالة الرئيسية لتشغيل البوت"""
@@ -567,13 +516,13 @@ def main():
         level=logging.INFO
     )
     
-    # التحقق من التوكن
-    if not TOKEN:
-        logging.error("❌ لم يتم تعيين BOT_TOKEN!")
-        return
-    
-    # إنشاء التطبيق
-    application = Application.builder().token(TOKEN).build()
+    # إنشاء التطبيق بدون updater لمنع المشكلة
+    application = (
+        Application.builder()
+        .token(TOKEN)
+        .updater(None)  # هذا يحل المشكلة
+        .build()
+    )
     
     # إضافة الأوامر
     application.add_handler(CommandHandler("start", start))
@@ -592,13 +541,9 @@ def main():
     # معالجة رسائل الدفع
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_payment))
     
-    # إعداد الأوامر عند التشغيل
-    application.post_init = setup_commands
-    
     # تشغيل البوت
     logging.info("🚀 Blast Boot يعمل الآن...")
     logging.info(f"📱 التوكن: {TOKEN[:10]}...")
-    logging.info(f"👑 المشرفون: {ADMIN_IDS}")
     logging.info(f"💰 أرقام سيريتل: {SERETEL_NUMBERS}")
     
     application.run_polling()
