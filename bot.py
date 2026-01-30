@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ========== إعدادات البوت ==========
-BOT_TOKEN = "8427120813:AAHAvU9qLIBDSwVgTppfABwDsKx88FRYagA"
+BOT_TOKEN = "= "8427120813:AAHhejkBSGwQO25ldAnqdQogLVFCnHOAx0w"
 SERETEL_NUMBERS = ["99880820", "17875230"]
 
 # ========== الباقات والأسعار ==========
